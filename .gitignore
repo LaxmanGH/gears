@@ -13,6 +13,13 @@ _site
 *.pdf
 user.properties
 *.gif
+*.zip
+*.wrl
+*.jar
+*.x3d
+*.html
+*.htm
+*.gdml
 
 # Executables
 gears
@@ -33,6 +40,7 @@ gxml
 *.he5
 *.hdf
 *.hdf5
+*log
 
 # alternative output format
 ghdf5.cc

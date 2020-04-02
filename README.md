@@ -1,15 +1,25 @@
-[![Documentation](https://codedocs.xyz/jintonic/gears.svg)](https://codedocs.xyz/jintonic/gears/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Code size](https://img.shields.io/github/languages/code-size/jintonic/gears.svg?style=flat)
-![Languages](https://img.shields.io/github/languages/top/jintonic/gears.svg?style=flat)
+[![Doxygen](https://codedocs.xyz/jintonic/gears.svg)](https://codedocs.xyz/jintonic/gears/annotated.html)
+[![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Examples](https://img.shields.io/badge/gears-examples-blue?style=flat)](examples)
+[![Get Started](https://img.shields.io/badge/get-started-orange?style=flat)](#getting-started)
+[![Get Involved](https://img.shields.io/badge/get-involved-ff69b4?style=flat)](#how-to-contribute)
 
-[GEARS][] is a [Geant4][] [Example Application](https://geant4.kek.jp/lxr/source/examples/) with [Rich features](#features) yet Small footprint. The entire C++ coding is minimized down to a single file with about 600 [SLOC][]. This is achieved mainly by utilizing [Geant4][] plain [text geometry description][tg], [build-in UI commands][TUI] (macros), and C++ inheritance. It is ideal for student training and fast implementation of small to medium-sized experiments.
+<a href="examples/detector/visualization/gearsX3D.html"><img style="float:right;width:120px;" src="examples/detector/visualization/gears.png"/></a>
+
+[GEARS][] is a [Geant4][] [Example][] Application with [Rich features](#features) yet Small footprint. The entire C++ coding is minimized down to a single file with about 600 [SLOC][]. This is achieved mainly by utilizing [Geant4][] plain [text geometry description][tg], [built-in UI commands][TUI] (macros), and C++ inheritance. It is ideal for student training and fast implementation of small to medium-sized experiments.
+
+[GEARS]: https://github.com/jintonic/gears
+[Geant4]: http://geant4.cern.ch
+[Example]:{{site.g4doc}}/Examples/examples.html
+[tg]: {{site.g4doc}}/Detector/Geometry/geomASCII.html
+[TUI]: {{site.g4doc}}/Control/commands.html
+[SLOC]: https://en.wikipedia.org/wiki/Source_lines_of_code
 
 ## Features
 
-* [Single small C++ file](https://github.com/jintonic/gears/blob/master/gears.cc), easy to manage, fast to [compile](#compilation)(a few second on a regular PC)
-* [Output in multiple data format](#output)
-  * [ROOT](#root) TTree format (default, no [ROOT][] installation is needed)
+* [Single small C++ file]({{site.file}}/gears.cc), easy to manage, fast to [compile](#compilation)(a few second on a regular PC)
+* [Output in multiple data format](examples/output)
+  * [ROOT](examples/output#root) TTree format (default, no [ROOT][] installation is needed)
     * Build-in data compression, well suitable for large data processing
     * Fast access to independent data members
     * Flat tree (no nested branches or arrays) with short leaf names
@@ -23,13 +33,15 @@
   * Fast implementation of [detector geometry](examples/detector) without C++ programming
   * Create/Change geometry without re-compilation
   * Turn off data saving in a volume by assigning it a non-positive copy number
-  * Turn any volume to a sensitive detector by adding "(S)" in its name
-  * Assign optical properties in [Geant4][] plain [text geometry description][tg]
-* Optional optical and hadronic [physics](examples/physics)
-* Periodic status report in a long run
-* Frequently used source spectra (AmBe, Am-241, etc.)
+  * Turn any volume to a [sensitive detector](examples/detector#sensitive-volume) by adding "(S)" in its name
+  * [Assign optical properties in Geant4 plain text geometry description](examples/detector/optical)
+* [Macro commands](examples/physics) to select any [Geant4 reference physics list](https://geant4.web.cern.ch/node/155) that is well maintained and thoroughly tested upon each [Geant4][] release.
+* Frequently used source spectra (AmBe, Am-241, etc.) in addition to [GPS][]
 * [Doxygen documentation](https://codedocs.xyz/jintonic/gears/)
-* Many [sample macros](examples) and [geometry descriptions](examples/detector#detector-construction) for feature demonstration
+* Many [sample macros](examples) and [geometry descriptions](examples/detector) for feature demonstration
+
+[ROOT]: https://root.cern.ch
+[GPS]:{{site.g4doc}}/GettingStarted/generalParticleSource.html
 
 ## Getting started
 
@@ -66,7 +78,7 @@ Note that if you change some files in your local copy, the `git pull` command wi
 
 ### Compilation
 
-[GEARS][] is shipped with a simple [makefile](https://github.com/jintonic/gears/blob/master/makefile). Simply type `make` to compile [gears.cc](https://github.com/jintonic/gears/blob/master/gears.cc) to generate a tiny executable `gears`:
+[GEARS][] is shipped with a simple [makefile]({{site.file}}/makefile). Simply type `make` to compile [gears.cc]({{site.file}}/gears.cc) to generate a tiny executable `gears`:
 
 ```sh
 $ cd /path/to/gears
@@ -79,7 +91,7 @@ $ gears # run gears
 
 ### User interface
 
-[GEARS][] relies on [G4UIExecutive](http://geant4-userdoc.web.cern.ch/geant4-userdoc/UsersGuides/ForApplicationDeveloper/html/GettingStarted/graphicalUserInterface.html#how-to-select-interface-in-your-applications) to select a user interface (UI). Without any specific setup, [GEARS][] will try to run a graphic user interface (GUI) based on [Qt][]. If your [Geant4][] is not compiled with [Qt][] support, [GEARS][] will try to [use a command-line UI that behaves like a tcsh](http://geant4-userdoc.web.cern.ch/geant4-userdoc/UsersGuides/ForApplicationDeveloper/html/GettingStarted/graphicalUserInterface.html#g4uiterminal). Run the following command to check if your [Geant4][] is compiled with [Qt][]
+[GEARS][] relies on [G4UIExecutive]({{site.g4doc}}/GettingStarted/graphicalUserInterface.html#how-to-select-interface-in-your-applications) to select a user interface (UI). Without any specific setup, [GEARS][] will try to run a graphic user interface (GUI) based on [Qt][]. If your [Geant4][] is not compiled with [Qt][] support, [GEARS][] will try to [use a command-line UI that behaves like a tcsh]({{site.g4doc}}/GettingStarted/graphicalUserInterface.html#g4uiterminal). Run the following command to check if your [Geant4][] is compiled with [Qt][]
 
 ```sh
 $ geant4-config --help | grep qt
@@ -104,7 +116,7 @@ gears tcsh # just for gears
 
 ### Session mode
 
-Without any argument, `gears` will start an [interactive session](http://geant4-userdoc.web.cern.ch/geant4-userdoc/UsersGuides/ForApplicationDeveloper/html/GettingStarted/graphicalUserInterface.html). It accepts [commands](http://geant4-userdoc.web.cern.ch/geant4-userdoc/UsersGuides/ForApplicationDeveloper/html/Control/commands.html) you type in the UI.
+Without any argument, `gears` will start an [interactive session]({{site.g4doc}}/GettingStarted/graphicalUserInterface.html). It accepts [commands]({{site.g4doc}}/Control/commands.html) you type in the UI.
 
 You can also put a set of commands into a [macro](examples) file, which can be used as an argument of `gears`. For example,
 
@@ -144,7 +156,7 @@ You can initiate a [pull request on GitHub](https://help.github.com/en/github/co
 
 #### Indentation
 
-Two spaces instead of a tab are used to indent a line in [gears.cc](https://github.com/jintonic/gears/blob/master/gears.cc) to insure a consistent appearance in different text editors, and to avoid wasting space in font of deeply nested code blocks. The following mode lines are added to the end of [gears.cc](https://github.com/jintonic/gears/blob/master/gears.cc) to insure that in [Vim][] and [Emacs][]:
+Two spaces instead of a tab are used to indent a line in [gears.cc]({{site.file}}/gears.cc) to insure a consistent appearance in different text editors, and to avoid wasting space in font of deeply nested code blocks. The following mode lines are added to the end of [gears.cc]({{site.file}}/gears.cc) to insure that in [Vim][] and [Emacs][]:
 
 ```cpp
 // -*- C++; indent-tabs-mode:nil; tab-width:2 -*-
@@ -163,12 +175,6 @@ Two spaces instead of a tab are used to indent a line in [gears.cc](https://gith
 - new functions
   - time chopping of radioactive decay chain
 
-[GEARS]: https://github.com/jintonic/gears
-[tg]: http://geant4-userdoc.web.cern.ch/geant4-userdoc/UsersGuides/ForApplicationDeveloper/html/Detector/Geometry/geomASCII.html
-[TUI]: http://geant4-userdoc.web.cern.ch/geant4-userdoc/UsersGuides/ForApplicationDeveloper/html/Control/commands.html
-[SLOC]: https://en.wikipedia.org/wiki/Source_lines_of_code
-[ROOT]: https://root.cern.ch
-[Geant4]: http://geant4.cern.ch
 [G4UserSteppingAction]:http://www-geant4.kek.jp/lxr/source/tracking/include/G4UserSteppingAction.hh
 [GDML]: https://gdml.web.cern.ch/GDML/
 [HDF5]: https://www.hdfgroup.org/downloads/hdf5/

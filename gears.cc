@@ -26,13 +26,15 @@ class Output : public G4SteppingVerbose
     vector<int> pro;   ///< process ID * 100 + sub-process ID
     vector<int> pdg;   ///< PDG encoding
     vector<int> mom;   ///< parent particle's PDG encoding
-    vector<double> e;  ///< energy deposited [keV]
-    vector<double> k;  ///< kinetic energy of the track [keV]
+    vector<double> k;  ///< kinetic energy [keV]
+    vector<double> p;  ///< momentum [keV]
     vector<double> t;  ///< local time [ns]
     vector<double> x;  ///< local x [mm]
     vector<double> y;  ///< local y [mm]
     vector<double> z;  ///< local z [mm]
     vector<double> l;  ///< length of track till this point [mm]
+    vector<double> de; ///< energy deposited [keV]
+    vector<double> dl; ///< step length [mm]
     vector<double> t0; ///< global time [ns]
     vector<double> x0; ///< global x [mm]
     vector<double> y0; ///< global y [mm]
@@ -47,20 +49,24 @@ class Output : public G4SteppingVerbose
 Output::Output(): G4SteppingVerbose()
 {
   auto manager = G4AnalysisManager::Instance();
-  manager->CreateNtuple("t", "Geant4 track points");
+  manager->CreateNtuple("t", "Geant4 step points");
+  manager->CreateNtupleIColumn("n"); // total number of recorded hits
+  manager->CreateNtupleIColumn("m"); // max copy number of sensitive volume
   manager->CreateNtupleIColumn("trk", trk);
   manager->CreateNtupleIColumn("stp", stp);
   manager->CreateNtupleIColumn("vlm", vlm);
   manager->CreateNtupleIColumn("pro", pro);
   manager->CreateNtupleIColumn("pdg", pdg);
   manager->CreateNtupleIColumn("mom", mom);
-  manager->CreateNtupleDColumn("e", e);
   manager->CreateNtupleDColumn("k", k);
+  manager->CreateNtupleDColumn("p", p);
   manager->CreateNtupleDColumn("t", t);
   manager->CreateNtupleDColumn("x", x);
   manager->CreateNtupleDColumn("y", y);
   manager->CreateNtupleDColumn("z", z);
   manager->CreateNtupleDColumn("l", l);
+  manager->CreateNtupleDColumn("de", de);
+  manager->CreateNtupleDColumn("dl", dl);
   manager->CreateNtupleDColumn("t0", t0);
   manager->CreateNtupleDColumn("x0", x0);
   manager->CreateNtupleDColumn("y0", y0);
@@ -77,9 +83,9 @@ void Output::Record()
 
   G4TouchableHandle handle = fStep->GetPreStepPoint()->GetTouchableHandle();
   int copyNo=handle->GetReplicaNumber();
-  if (copyNo<=0) return; //skip uninteresting volumes
+  if (copyNo<=0) return; //skip uninteresting volumes (copy No. of world == 0)
   if (trk.size()>=10000) {
-    G4cout<<"GEARS: # of track points >=10000. Recording stopped."<<G4endl;
+    G4cout<<"GEARS: # of step points >=10000. Recording stopped."<<G4endl;
     fTrack->SetTrackStatus(fKillTrackAndSecondaries);
     return;
   }
@@ -94,13 +100,17 @@ void Output::Record()
       pro.push_back(fTrack->GetCreatorProcess()->GetProcessType()*1000
           + fTrack->GetCreatorProcess()->GetProcessSubType());
   } else {
-    const G4VProcess *p = fStep->GetPostStepPoint()->GetProcessDefinedStep();
-    pro.push_back(p->GetProcessType()*1000 + p->GetProcessSubType());
+    const G4VProcess *pr = fStep->GetPostStepPoint()->GetProcessDefinedStep();
+    if (pr) pro.push_back(pr->GetProcessType()*1000 + pr->GetProcessSubType());
+    else pro.push_back(-100); // not sure why pr can be zero
   }
 
-  e.push_back(fStep->GetTotalEnergyDeposit()/CLHEP::keV);
   k.push_back(fTrack->GetKineticEnergy()/CLHEP::keV);
+  p.push_back(fTrack->GetMomentum().mag()/CLHEP::keV);
   l.push_back(fTrack->GetTrackLength()/CLHEP::mm);
+
+  de.push_back(fStep->GetTotalEnergyDeposit()/CLHEP::keV);
+  dl.push_back(fTrack->GetStepLength()/CLHEP::mm);
 
   t0.push_back(fTrack->GetGlobalTime()/CLHEP::ns);
   x0.push_back(fTrack->GetPosition().x()/CLHEP::mm);
@@ -114,9 +124,9 @@ void Output::Record()
   z.push_back(pos.z()/CLHEP::mm);
   t.push_back(fTrack->GetLocalTime()/CLHEP::ns);
 
-  if (e.back()>0 && handle->GetVolume()->GetName().contains("(S)")) {
+  if (de.back()>0 && handle->GetVolume()->GetName().contains("(S)")) {
     if (et.size()<(unsigned int)copyNo+1) et.resize((unsigned int)copyNo+1);
-    et[copyNo]+=e.back();
+    et[copyNo]+=de.back(); et[0]+=de.back();
   }
 }
 //______________________________________________________________________________
@@ -124,8 +134,9 @@ void Output::Record()
 void Output::Reset()
 {
   trk.clear(); stp.clear(); vlm.clear(); pro.clear(); pdg.clear(); mom.clear();
-  e.clear(); k.clear(); x.clear(); y.clear(); z.clear(); l.clear(); et.clear();
-  x0.clear(); y0.clear(); z0.clear(); t0.clear();
+  k.clear(); p.clear(); x.clear(); y.clear(); z.clear(); t.clear(); l.clear();
+  de.clear(); dl.clear();
+  et.clear(); x0.clear(); y0.clear(); z0.clear(); t0.clear();
 }
 //______________________________________________________________________________
 //
@@ -399,13 +410,11 @@ class Detector : public G4VUserDetectorConstruction, public G4UImessenger
 {
   public:
     Detector();
-    ~Detector()
-    { delete fDir; delete fCmdSetB; delete fCmdSrc; delete fCmdOut; }
+    ~Detector() { delete fCmdSetB; delete fCmdSrc; delete fCmdOut; }
     G4VPhysicalVolume* Construct(); ///< called at /run/initialize
     void SetNewValue(G4UIcommand* cmd, G4String value); ///< for G4UI
 
   private:
-    G4UIdirectory *fDir; ///< /field/
     G4UIcmdWith3VectorAndUnit* fCmdSetB; ///< /field/setB
     G4UIcmdWithAString* fCmdSrc; ///< /geometry/source
     G4UIcmdWithAString* fCmdOut; ///< /geometry/export
@@ -429,10 +438,7 @@ Detector::Detector(): G4UImessenger(), fWorld(0)
   fCmdSrc->SetParameterName("text geometry input",false);
   fCmdSrc->AvailableForStates(G4State_PreInit);
 
-  fDir = new G4UIdirectory("/field/");
-  fDir->SetGuidance("Global uniform field UI commands");
-
-  fCmdSetB = new G4UIcmdWith3VectorAndUnit("/field/SetB",this);
+  fCmdSetB = new G4UIcmdWith3VectorAndUnit("/geometry/SetB",this);
   fCmdSetB->SetGuidance("Set uniform magnetic field value.");
   fCmdSetB->SetParameterName("Bx", "By", "Bz", false);
   fCmdSetB->SetUnitCategory("Magnetic flux density");
@@ -483,7 +489,7 @@ void Detector::SetNewValue(G4UIcommand* cmd, G4String value)
 G4VPhysicalVolume* Detector::Construct()
 {
   if (fWorld==NULL) {
-    G4cout<<"GEARS: World not available. Return a simple hall."<<G4endl;
+    G4cout<<"GEARS: no detector specified, set to a 10x10x10 m^3 box."<<G4endl;
     G4Box* box = new G4Box("hall", 5*CLHEP::m, 5*CLHEP::m, 5*CLHEP::m);
     G4NistManager *nist = G4NistManager::Instance();
     G4Material *vacuum = nist->FindOrBuildMaterial("G4_Galactic");
@@ -491,55 +497,6 @@ G4VPhysicalVolume* Detector::Construct()
     fWorld = new G4PVPlacement(0, G4ThreeVector(), v, "hall", 0, 0, 0);
   }
   return fWorld;
-}
-//______________________________________________________________________________
-//
-#include "G4VModularPhysicsList.hh"
-/**
- * Enable physics lists.
- * Physics lists have to be enabled when Geant4 is at PreInit state. All UI
- * commands defined here have to be put before /run/Initialize in a mac file.
- */
-class Physics: public G4VModularPhysicsList, public G4UImessenger
-{
-  public:
-    Physics();
-    ~Physics() { delete fCmd; }
-    void SetNewValue(G4UIcommand* cmd, G4String value); ///< for G4UI
-  private:
-    G4UIcmdWithAString* fCmd;
-};
-//______________________________________________________________________________
-//
-#include "G4DecayPhysics.hh"
-#include "G4RadioactiveDecayPhysics.hh"
-#include "G4EmStandardPhysics.hh"
-Physics::Physics() : G4VModularPhysicsList(), G4UImessenger()
-{
-  fCmd = new G4UIcmdWithAString("/physics_lists/enable",this);
-  fCmd->SetGuidance("Enable a certain physics list");
-  fCmd->SetParameterName("name of a physics list", false);
-  fCmd->SetCandidates("Optical HadronElastic HadronInelastic");
-  fCmd->AvailableForStates(G4State_PreInit);
-
-  RegisterPhysics(new G4DecayPhysics()); // defined many particles
-  RegisterPhysics(new G4RadioactiveDecayPhysics());
-  RegisterPhysics(new G4EmStandardPhysics()); // must be after RadioactiveDecay
-}
-//______________________________________________________________________________
-//
-#include "G4OpticalPhysics.hh"
-#include "G4HadronElasticPhysicsHP.hh"
-#include "G4HadronPhysicsFTFP_BERT_HP.hh" // won't work for Geant4 version<10
-void Physics::SetNewValue(G4UIcommand* cmd, G4String value)
-{
-  if (cmd==fCmd) {
-    if (value=="Optical") RegisterPhysics(new G4OpticalPhysics());
-    else if (value=="HadronElastic")
-      RegisterPhysics(new G4HadronElasticPhysicsHP());
-    else if (value=="HadronInelastic")
-      RegisterPhysics(new G4HadronPhysicsFTFP_BERT_HP());
-  }
 }
 //______________________________________________________________________________
 //
@@ -569,29 +526,23 @@ class Generator : public G4VUserPrimaryGeneratorAction
 class RunAction : public G4UserRunAction
 {
   public:
-    RunAction() : G4UserRunAction() {};
-    void BeginOfRunAction (const G4Run* run);///< Print # of evts
-    void EndOfRunAction (const G4Run* run); ///< Close output file
+    void BeginOfRunAction (const G4Run*);///< Open output file
+    void EndOfRunAction (const G4Run*);  ///< Close output file
 };
 //______________________________________________________________________________
 //
 #include <G4Run.hh>
-void RunAction::BeginOfRunAction (const G4Run* run)
+void RunAction::BeginOfRunAction(const G4Run*)
 { 
-  G4cout<<"GEARS: "<<run->GetNumberOfEventToBeProcessed()
-    <<" events to be processed"<<G4endl;
   auto a = G4AnalysisManager::Instance();
-  if (a->GetFileName()=="") a->OpenFile("output");
-  else a->OpenFile();
+  if (a->GetFileName()!="") a->OpenFile();
 }
 //______________________________________________________________________________
 //
-void RunAction::EndOfRunAction (const G4Run* run)
+void RunAction::EndOfRunAction(const G4Run*)
 {
-  G4cout<<"GEARS: In total, "<<run->GetNumberOfEvent()
-    <<" events simulated"<<G4endl;
   auto a = G4AnalysisManager::Instance();
-  a->Write(); a->CloseFile();
+  if (a->GetFileName()!="") { a->Write(); a->CloseFile(); }
 }
 //______________________________________________________________________________
 //
@@ -603,26 +554,15 @@ void RunAction::EndOfRunAction (const G4Run* run)
 class EventAction : public G4UserEventAction, public G4UImessenger
 {
   public:
-    EventAction();
-    ~EventAction() { delete fCmd; }
     void BeginOfEventAction(const G4Event*); ///< Prepare for recording
-    void EndOfEventAction(const G4Event* event); ///< Save tree
-    void SetNewValue(G4UIcommand* cmd, G4String value)
-    { if (cmd==fCmd) fN2report=atoi(value); } ///< for G4UI
-  private:
-    int fN2report;///< Number of events to report
-    G4UIcmdWithAnInteger* fCmd;
+    void EndOfEventAction(const G4Event*) {
+      auto a = G4AnalysisManager::Instance(); if (a->GetFileName()=="") return;
+      Output* o = ((Output*) G4VSteppingVerbose::GetInstance()); 
+      a->FillNtupleIColumn(0,o->stp.size());
+      a->FillNtupleIColumn(1,o->et.size()-1);
+      a->AddNtupleRow();
+    } ///< Fill n-tuple if output file name is specified
 };
-//______________________________________________________________________________
-//
-EventAction::EventAction()
-  : G4UserEventAction(), G4UImessenger(), fN2report(1000)
-{
-  fCmd = new G4UIcmdWithAnInteger("/run/statusReport",this);
-  fCmd->SetGuidance("enable status report after [number of events]");
-  fCmd->SetParameterName("number of events",true);
-  fCmd->SetDefaultValue(fN2report);
-}
 //______________________________________________________________________________
 //
 #include <G4EventManager.hh>
@@ -638,15 +578,55 @@ void EventAction::BeginOfEventAction(const G4Event*)
 }
 //______________________________________________________________________________
 //
-void EventAction::EndOfEventAction(const G4Event* event)
+#include <G4RunManager.hh>
+#include <G4StateManager.hh>
+#include <G4PhysListFactory.hh>
+/**
+ * Place to put all building blocks together.
+ */
+class RunManager : public G4RunManager, public G4UImessenger
 {
-  int id=event->GetEventID()+1;
-  if (id%fN2report==0) G4cout<<"GEARS: "<<id<<" events simulated"<<G4endl;
-  G4AnalysisManager::Instance()->AddNtupleRow(); // save event data
-}
+  private:
+    G4PhysListFactory* fFactory; ///< tool to construct a ref. list by its name
+    G4UIcmdWithAString* fCmdPhys; ///< macro cmd to select a physics list
+  public:
+    RunManager() : fFactory(0) {
+      SetUserInitialization(new Detector); // needed for /run/initialize
+      fCmdPhys = new G4UIcmdWithAString("/physics_lists/select",this);
+      fCmdPhys->SetGuidance("Select a physics list");
+      fCmdPhys->SetGuidance("Candidates are specified in G4PhysListFactory.cc");
+      fCmdPhys->SetParameterName("name of a physics list", false);
+      fCmdPhys->AvailableForStates(G4State_PreInit);
+    }
+    ~RunManager() { delete fCmdPhys; delete fFactory; }
+
+    void SetNewValue(G4UIcommand* cmd, G4String value) {
+      if (cmd!=fCmdPhys) return; if (fFactory) return;
+      fFactory = new G4PhysListFactory;
+      if (fFactory->IsReferencePhysList(value)==false) {
+        G4cout<<"GEARS: no physics list \""<<value
+          <<"\", set to \"QGSP_BERT_EMV\""<<G4endl;
+        value = "QGSP_BERT_EMV"; // default
+      }
+      SetUserInitialization(fFactory->GetReferencePhysList(value));
+    } ///< for UI
+
+    void InitializePhysics() {
+      if (fFactory==NULL) { // no /physics_lists/select is used
+        fFactory = new G4PhysListFactory;
+        G4StateManager::GetStateManager()->SetNewState(G4State_PreInit);
+        // has to be called in PreInit state:
+        SetUserInitialization(fFactory->GetReferencePhysList("QGSP_BERT_EMV"));
+      }
+      G4RunManager::InitializePhysics(); // call the original function
+      // has to be called after physics initilization
+      SetUserAction(new Generator);
+      SetUserAction(new RunAction);
+      SetUserAction(new EventAction);
+    } ///< set physics list if it is not specified explicitly
+};
 //______________________________________________________________________________
 //
-#include <G4RunManager.hh>
 #include <G4VisExecutive.hh>
 #include <G4UIExecutive.hh>
 #include <G4UImanager.hh> // needed for g4.10 and above
@@ -657,22 +637,14 @@ int main(int argc, char **argv)
 {
   // inherit G4SteppingVerbose instead of G4UserSteppingAction to record data
   G4VSteppingVerbose::SetInstance(new Output); // must be before run manager
-  // initialize necessary components for simulation
-  G4RunManager* run = new G4RunManager;
-  run->SetUserInitialization(new Detector);
-  run->SetUserInitialization(new Physics);
-  run->SetUserAction(new Generator);
-  run->SetUserAction(new RunAction);
-  run->SetUserAction(new EventAction);
-  // enable visualization of detector and tracks
-  G4VisManager* vis = new G4VisExecutive;
-  //vis->SetVerboseLevel(0); // suppress list of vis engines
+  RunManager* run = new RunManager; // customized run control
+  G4VisManager* vis = new G4VisExecutive("quiet"); // visualization
   vis->Initialize();
-  // run simulation
-  if (argc!=1)  { // run from command line
+  // select mode of execution
+  if (argc!=1)  { // batch mode
     G4String cmd = "/control/execute ";
     G4UImanager::GetUIpointer()->ApplyCommand(cmd+argv[1]);
-  } else { // run with an UI
+  } else { // interactive mode
     // check available UI automatically in the order of Qt, tsch, Xm
     G4UIExecutive *ui = new G4UIExecutive(argc,argv);
     ui->SessionStart();
